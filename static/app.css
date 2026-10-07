@@ -35,3 +35,10 @@ html[data-theme=dark] .workspace>.workshop-watermark{opacity:.055}
 .workspace>.workshop-watermark{opacity:.025}
 html[data-theme=dark] .workspace>.workshop-watermark{opacity:.035}
 @media(max-width:760px){.workspace>.workshop-watermark{opacity:.02}}
+/* Identidade 3D: emblema transparente integrado ao banner. */
+.hero{background:radial-gradient(ellipse at 85% 50%,#343b41 0,transparent 55%),#1c1f22}
+.hero-art{padding:20px 28px}
+.hero-logo{width:100%;max-width:430px;max-height:230px;height:auto;object-fit:contain;background:transparent;border:0;border-radius:0;padding:0;box-shadow:none;filter:drop-shadow(0 14px 18px #00000045)}
+.hero-orbit{opacity:.5}
+.workspace>.workshop-watermark{opacity:.035}
+@media(max-width:760px){.hero-art{padding:0 21px 20px;justify-content:center}.hero-logo{width:100%;max-width:320px;max-height:205px;padding:0;background:none}.workspace>.workshop-watermark{opacity:.02}}
