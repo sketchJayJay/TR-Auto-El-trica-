@@ -1,0 +1,5 @@
+{% macro icon(name, cls='') -%}<svg class="icon {{ cls }}" aria-hidden="true"><use href="{{ url_for('static', filename='icons.svg') }}#{{ name }}"></use></svg>{%- endmacro %}
+{% macro status(value) -%}<span class="status {{ status_class(value) }}"><i></i>{{ status_name(value) }}</span>{%- endmacro %}
+{% macro empty(title, text, link='', action='') %}<div class="empty">{{ icon('search') }}<h3>{{ title }}</h3><p>{{ text }}</p>{% if link %}<a class="btn" href="{{ link }}">{{ action }}</a>{% endif %}</div>{% endmacro %}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+{% macro pager(p) %}{% if p.pages>1 %}<div class="pagination noprint"><span>{{ p.count }} registros · Página {{ p.number }} de {{ p.pages }}</span><div>{% if p.previous %}<a class="btn small secondary" href="{{ p.previous }}">{{ icon('arrow-left') }}Anterior</a>{% endif %}{% if p.following %}<a class="btn small secondary" href="{{ p.following }}">Próxima{{ icon('arrow-right') }}</a>{% endif %}</div></div>{% endif %}{% endmacro %}

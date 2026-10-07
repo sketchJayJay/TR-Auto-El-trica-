@@ -1,0 +1,38 @@
+{% extends 'base.html' %}{% from '_ui.html' import icon,csrf with context %}
+{% macro value(name, old='') %}{{ posted.get(name, old if old is not none else '') }}{% endmacro %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">ATENDIMENTO {{ '· #' ~ '%04d'|format(o.id) if o else '' }}</div><h1>{{ 'Editar ordem de serviço' if o else 'Um novo serviço começa aqui.' }}</h1><p>Cliente, veículo e serviço. Preencha, confira e salve.</p></div><span class="soft-tag">{{ icon('clipboard') }}{{ 'Editar OS' if o else 'Nova OS' }}</span></div>
+{% if error %}<div class="alert error" role="alert">{{ icon('alert') }}{{ error }}</div>{% endif %}
+<form method="post" class="form-layout" id="order-form">{{ csrf() }}
+<input type="hidden" name="client_id" id="client-id" value="{{ posted.get('client_id',o.client_id if o else '') }}">
+<div class="form-main">
+  <section class="panel form-panel"><div class="section-title"><span class="section-number">01</span><h2>Quem trouxe o veículo?</h2></div>
+    <div class="form-grid">
+      <div class="span-2"><div class="client-find-label"><label class="label" for="find-client">Buscar um cliente cadastrado</label><button type="button" class="text-link plain-button" id="new-client-mode">Cadastrar novo</button></div><div class="search-field">{{ icon('search') }}<input id="find-client" class="field" list="client-options" placeholder="Digite o nome e selecione"><datalist id="client-options">{% for c in clients %}<option value="{{ c.name }} · #{{ c.id }}"></option>{% endfor %}</datalist></div><p class="form-help">Ao selecionar um cliente, os dados são preenchidos. Você também pode cadastrar um novo abaixo.</p></div>
+      <div class="mobile-full"><label class="label" for="client-name">Nome do cliente <em>*</em></label><input id="client-name" class="field" name="client_name" value="{{ value('client_name',o.client_name if o else '') }}" required placeholder="Nome completo" autocomplete="name"></div>
+      <div class="mobile-full"><label class="label" for="client-phone">Telefone / WhatsApp</label><input id="client-phone" class="field" name="phone" type="tel" value="{{ value('phone',o.phone if o else '') }}" placeholder="(32) 99999-9999" autocomplete="tel"></div>
+      <div><label class="label" for="cpf">CPF</label><input id="cpf" class="field" name="cpf" value="{{ value('cpf',o.client_cpf if o else '') }}" placeholder="000.000.000-00" inputmode="numeric"></div>
+      <div><label class="label" for="vehicle-picker">Veículos do cliente</label><select id="vehicle-picker" class="field"><option value="">Selecione ou informe abaixo</option></select></div>
+      <div class="span-2"><label class="label" for="address">Endereço</label><input id="address" class="field" name="client_address" value="{{ value('client_address',o.client_address if o else '') }}" placeholder="Rua, número, bairro e cidade" autocomplete="street-address"></div>
+    </div>
+  </section>
+  <section class="panel form-panel"><div class="section-title"><span class="section-number">02</span><h2>Veículo e serviço</h2></div><div class="form-grid">
+    <div><label class="label" for="plate">Placa <em>*</em></label><input id="plate" class="field" name="plate" value="{{ value('plate',o.plate if o else '') }}" required placeholder="ABC1D23" autocapitalize="characters" maxlength="20"></div>
+    <div><label class="label" for="model">Modelo</label><input id="model" class="field" name="model" value="{{ value('model',o.model if o else '') }}" placeholder="Ex.: Onix 1.0"></div>
+    <div class="span-2"><label class="label" for="notes">Descrição do serviço / Observações</label><textarea id="notes" class="field" name="notes" rows="4" placeholder="Descreva o problema e o serviço a executar...">{{ value('notes',o.notes if o else '') }}</textarea></div>
+  </div></section>
+  <section class="panel form-panel"><div class="items-head"><div class="section-title"><span class="section-number">03</span><h2>Peças e itens</h2></div><button type="button" class="btn small secondary" id="add-manual">{{ icon('plus') }}Item avulso</button></div>
+    <div class="item-picker"><div><label class="label" for="find-stock">Buscar peça cadastrada</label><input id="find-stock" class="field" list="stock-options" placeholder="Digite o nome da peça"><datalist id="stock-options">{% for s in stock %}<option value="{{ s.name }} · #{{ s.id }}"></option>{% endfor %}</datalist></div><div><label class="label" for="stock-qty">Qtd.</label><input class="field" id="stock-qty" type="number" min="0.01" step="0.01" value="1"></div><button type="button" class="btn secondary" id="add-stock">{{ icon('plus') }}Adicionar</button></div>
+    <div class="table-wrap"><table class="data-table item-table"><thead><tr><th>Descrição</th><th>Qtd.</th><th>Unitário</th><th class="right">Subtotal</th><th></th></tr></thead><tbody id="order-items"></tbody></table></div><p class="item-empty" id="item-empty">Adicione peças cadastradas ou itens avulsos.</p><p class="form-help">As peças usam o preço do cadastro. A quantidade em estoque é ajustada na tela de Estoque.</p>
+  </section>
+  <section class="panel form-panel"><div class="section-title"><span class="section-number">04</span><h2>Valores e pagamento</h2></div><div class="form-grid">
+    <div><label class="label" for="labor">Mão de obra (R$)</label><input id="labor" class="field" type="number" name="labor" value="{{ value('labor',o.labor if o else '0') }}" step="0.01" min="0" required></div>
+    <div><label class="label" for="discount">Desconto (%)</label><input id="discount" class="field" type="number" name="discount_percent" value="{{ value('discount_percent',o.discount_percent if o else '0') }}" min="0" max="100" step="0.01" required></div>
+    <div class="span-2"><label class="label" for="payment">Forma de pagamento</label><select id="payment" class="field" name="payment_method"><option value="">Selecione</option>{% for pm in ['Dinheiro','Pix','Cartão Débito','Cartão Crédito','Boleto','Transferência'] %}<option value="{{ pm }}" {{ 'selected' if posted.get('payment_method',o.payment_method if o else '')==pm else '' }}>{{ pm }}</option>{% endfor %}</select></div>
+  </div></section>
+</div>
+<aside class="panel summary-panel"><div class="eyebrow">CONFIRA ANTES DE SALVAR</div><h2>Resumo do serviço</h2><div class="summary-row"><span>Peças e itens</span><strong id="sum-parts">R$ 0,00</strong></div><div class="summary-row"><span>Mão de obra</span><strong id="sum-labor">R$ 0,00</strong></div><div class="summary-row"><span>Total bruto</span><strong id="sum-gross">R$ 0,00</strong></div><div class="summary-row"><span>Desconto</span><strong id="sum-discount">R$ 0,00</strong></div><div class="summary-grand"><span>Total da OS</span><strong id="sum-total">R$ 0,00</strong></div><button type="submit" class="btn">{{ icon('check') }}{{ 'Salvar alterações' if o else 'Criar ordem de serviço' }}</button><a class="btn secondary" href="{{ url_for('ver_os',order_id=o.id) if o else url_for('lista_os') }}">Cancelar</a><p class="form-help">A OS pode ser editada e impressa após salvar.</p></aside>
+</form>
+<script type="application/json" id="order-data">{{ {'clients':clients,'vehicles':vehicles,'stock':stock,'items':items}|tojson }}</script>
+{% endblock %}
+{% block scripts %}<script src="{{ url_for('static',filename='order.js') }}" defer></script>{% endblock %}
