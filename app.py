@@ -1,5 +1,6 @@
 """TR Auto • Oficina Online. Compatível com o banco SQLite do sistema original."""
 import io
+import hashlib
 import os
 import re
 import secrets
@@ -180,9 +181,17 @@ def headers(response):
         response.headers["Cache-Control"] = "no-store"
     return response
 
+STATIC_VERSIONS = {
+    name: hashlib.sha256((ROOT / 'static' / name).read_bytes()).hexdigest()[:12]
+    for name in ('app.css', 'app.js', 'logo-background.png')
+}
+
+def static_asset(filename):
+    return url_for('static', filename=filename, v=STATIC_VERSIONS[filename])
+
 @app.context_processor
 def common():
-    return dict(app_name="TR Auto Elétrica", csrf_token=csrf_token, statuses=STATUSES,
+    return dict(static_asset=static_asset, app_name="TR Auto Elétrica", csrf_token=csrf_token, statuses=STATUSES,
                 status_name=status_name, status_class=status_class,
                 whatsapp_phone=whatsapp_phone,
                 today=now().strftime("%d/%m/%Y"), username=session.get("user"),

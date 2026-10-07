@@ -9,7 +9,7 @@
   <link rel="icon" href="{{ url_for('static',filename='app-icon.svg') }}" type="image/svg+xml">
   <link rel="apple-touch-icon" href="{{ url_for('static',filename='app-icon.png') }}">
   <link rel="manifest" href="{{ url_for('static',filename='manifest.webmanifest') }}">
-  <link rel="stylesheet" href="{{ url_for('static',filename='app.css') }}">
+  <link rel="stylesheet" href="{{ static_asset('app.css') }}">
   <script>try{document.documentElement.dataset.theme=localStorage.getItem('tr-theme')||'light'}catch(e){}</script>
 </head>
 <body>
@@ -32,6 +32,7 @@
     </div>
   </aside>
   <div class="workspace">
+    <img class="workshop-watermark noprint" src="{{ static_asset('logo-background.png') }}" alt="" aria-hidden="true">
     <header class="topbar noprint">
       <div class="top-title"><button class="icon-btn menu-toggle" id="menu-toggle" aria-label="Abrir menu" aria-expanded="false">{{ icon('menu') }}</button><span class="breadcrumb">Oficina <span>/</span> <strong>{{ page }}</strong></span></div>
       <form class="global-search" action="{{ url_for('lista_os') }}" method="get">{{ icon('search') }}<input name="q" placeholder="Buscar cliente, placa ou OS" aria-label="Busca geral" id="global-search"><kbd>⌘ K</kbd></form>
@@ -49,7 +50,7 @@
     <a class="{{ 'active' if section==key else '' }}" href="{{ path }}">{{ icon(ico) }}<span>{{ title }}</span></a>{% endfor %}
     <button id="mobile-more" aria-label="Mais opções">{{ icon('menu') }}<span>Mais</span></button>
   </nav>
-{% else %}<main class="auth-root">{% block auth_content %}{% endblock %}</main>{% endif %}
-<script src="{{ url_for('static',filename='app.js') }}" defer></script>
+{% else %}<main class="auth-root"><img class="workshop-watermark login-watermark noprint" src="{{ static_asset('logo-background.png') }}" alt="" aria-hidden="true">{% block auth_content %}{% endblock %}</main>{% endif %}
+<script src="{{ static_asset('app.js') }}" defer></script>
 {% block scripts %}{% endblock %}
 </body></html>
