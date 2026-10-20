@@ -31,6 +31,9 @@ class WorkshopTests(unittest.TestCase):
         cls.tmp.cleanup()
 
     def setUp(self):
+        with self.app.app_context():
+            self.mod.get_db().execute("DELETE FROM login_attempts")
+            self.mod.get_db().commit()
         self.client = self.app.test_client()
         self.client.get("/login")
         with self.client.session_transaction() as s:
@@ -61,7 +64,8 @@ class WorkshopTests(unittest.TestCase):
         with self.app.app_context():
             db = self.mod.get_db()
             for table in ("clients", "vehicles", "stock", "orders", "order_items"):
-                self.assertEqual([tuple(r) for r in db.execute(f"SELECT * FROM {table} ORDER BY id")],
+                columns = ",".join(r[1] for r in original.execute(f"PRAGMA table_info({table})"))
+                self.assertEqual([tuple(r) for r in db.execute(f"SELECT {columns} FROM {table} ORDER BY id")],
                                  original.execute(f"SELECT * FROM {table} ORDER BY id").fetchall(), table)
             self.assertEqual(db.execute("PRAGMA integrity_check").fetchone()[0], "ok")
             self.assertEqual(db.execute("PRAGMA foreign_key_check").fetchall(), [])
@@ -212,6 +216,53 @@ class WorkshopTests(unittest.TestCase):
         response=c.post("/login",data={"username":"test-admin","password":"incorrect","csrf_token":token})
         self.assertEqual(response.status_code,429)
         self.assertIn("Aguarde 15 minutos",response.text)
+
+    def test_13_fixed_discount_save_edit_print_and_switch(self):
+        oid = self.create_order(labor="200", discount_type="fixed", discount_fixed="20",
+                                discount_percent="99", **{"desc[]":[],"qty[]":[],"unit[]":[]})
+        row = self.query("SELECT * FROM orders WHERE id=?", (oid,))[0]
+        self.assertEqual((row["total_bruto"],row["discount_value"],row["total"],row["discount_percent"],row["discount_type"]),
+                         (200,20,180,0,"fixed"))
+        html=self.client.get(f"/os/{oid}").text
+        self.assertIn("Desconto (R$)",html)
+        self.assertIn("R$ 180,00",html)
+        edit=self.client.get(f"/os/{oid}/editar").text
+        self.assertIn('value="fixed" selected',edit)
+        self.assertIn('name="discount_fixed" value="20.0"',edit)
+        payload=self.form(client_id=str(row["client_id"]),client_name="Cliente integração",phone="32999998888",
+                          plate="TST1234",labor="250",discount_type="fixed",discount_fixed="20.25")
+        self.assertEqual(self.client.post(f"/os/{oid}/editar",data=payload).status_code,302)
+        self.assertEqual(self.query("SELECT total FROM orders WHERE id=?",(oid,))[0]["total"],229.75)
+        payload.update(discount_type="percent",discount_percent="10",discount_fixed="999")
+        self.assertEqual(self.client.post(f"/os/{oid}/editar",data=payload).status_code,302)
+        row=self.query("SELECT * FROM orders WHERE id=?",(oid,))[0]
+        self.assertEqual((row["total"],row["discount_value"],row["discount_type"]),(225,25,"percent"))
+        self.assertIn("Desconto (10%)",self.client.get(f"/os/{oid}").text)
+        self.client.post(f"/os/{oid}/delete",data=self.form())
+
+    def test_14_fixed_discount_limits_and_rounding(self):
+        for amount,expected in [("0",200),("200",0),("20,50",179.5),("0.005",199.99)]:
+            oid=self.create_order(labor="200",discount_type="fixed",discount_fixed=amount,
+                                  **{"desc[]":[],"qty[]":[],"unit[]":[]})
+            self.assertEqual(self.query("SELECT total FROM orders WHERE id=?",(oid,))[0]["total"],expected)
+            self.client.post(f"/os/{oid}/delete",data=self.form())
+        before=len(self.query("SELECT id FROM orders"))
+        for amount in ("201","200.001","-1","NaN","Infinity","abc"):
+            result=self.client.post("/os/nova",data=self.form(client_name="Invalid",plate="INV1234",labor="200",
+                                   discount_type="fixed",discount_fixed=amount))
+            self.assertEqual(result.status_code,200)
+            self.assertIn('class="alert error"',result.text)
+        result=self.client.post("/os/nova",data=self.form(client_name="Invalid",plate="INV1234",labor="200",discount_type="invalid"))
+        self.assertIn("Selecione o tipo de desconto",result.text)
+        self.assertEqual(len(self.query("SELECT id FROM orders")),before)
+
+    def test_15_legacy_orders_default_to_percent_after_migration(self):
+        with self.app.app_context():
+            db=self.mod.get_db()
+            old=[tuple(r) for r in db.execute("SELECT id,total,discount_percent,discount_value FROM orders ORDER BY id")]
+            self.mod.init_db()
+            self.assertEqual(old,[tuple(r) for r in db.execute("SELECT id,total,discount_percent,discount_value FROM orders ORDER BY id")])
+            self.assertEqual(db.execute("SELECT count(*) FROM orders WHERE discount_type IS NULL OR discount_type!='percent'").fetchone()[0],0)
 
 
 if __name__ == "__main__":

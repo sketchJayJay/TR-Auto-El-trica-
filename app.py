@@ -146,7 +146,8 @@ def init_db():
     cols = {r["name"] for r in db.execute("PRAGMA table_info(orders)")}
     for column, kind in {"client_cpf":"TEXT", "client_address":"TEXT", "payment_method":"TEXT",
                          "discount_percent":"REAL NOT NULL DEFAULT 0", "discount_value":"REAL NOT NULL DEFAULT 0",
-                         "total_bruto":"REAL NOT NULL DEFAULT 0"}.items():
+                         "total_bruto":"REAL NOT NULL DEFAULT 0",
+                         "discount_type":"TEXT NOT NULL DEFAULT 'percent'"}.items():
         if column not in cols:
             db.execute(f"ALTER TABLE orders ADD COLUMN {column} {kind}")
     db.commit()
@@ -183,7 +184,7 @@ def headers(response):
 
 STATIC_VERSIONS = {
     name: hashlib.sha256((ROOT / 'static' / name).read_bytes()).hexdigest()[:12]
-    for name in ('app.css', 'app.js', 'logo-background.png')
+    for name in ('app.css', 'app.js', 'logo-background.png', 'order.js')
 }
 
 def static_asset(filename):
@@ -299,11 +300,21 @@ def read_items():
             raise ValueError("A quantidade de cada item precisa ser maior que zero.")
         items.append((desc.strip()[:500], quantity, decimal_value(price, "Preço")))
     labor = decimal_value(request.form.get("labor"), "Mão de obra")
-    pct = decimal_value(request.form.get("discount_percent"), "Desconto", Decimal("100"))
+    discount_type = request.form.get("discount_type", "percent")
+    if discount_type not in ("percent", "fixed"):
+        raise ValueError("Selecione o tipo de desconto: porcentagem ou valor em reais.")
+    pct = (decimal_value(request.form.get("discount_percent"), "Desconto (%)", Decimal("100"))
+           if discount_type == "percent" else Decimal("0"))
     parts = sum((q * p for _, q, p in items), Decimal("0"))
     gross = Decimal(str(rounded(parts + labor)))
-    discount = Decimal(str(rounded(gross * pct / 100)))
-    return items, labor, pct, gross, discount, gross - discount
+    if discount_type == "fixed":
+        amount = decimal_value(request.form.get("discount_fixed"), "Desconto (R$)")
+        if amount > gross:
+            raise ValueError("O desconto em reais não pode ser maior que o total bruto da OS.")
+        discount = Decimal(str(rounded(amount)))
+    else:
+        discount = Decimal(str(rounded(gross * pct / 100)))
+    return items, labor, pct, gross, discount, gross - discount, discount_type
 
 @app.route("/os/nova", methods=["GET", "POST"])
 def nova_os():
@@ -324,7 +335,7 @@ def edit_order(order_id):
             if not name or not plate:
                 raise ValueError("Informe o cliente e a placa do veículo.")
             plate = plate.upper()[:20]
-            items, labor, pct, gross, discount, total = read_items()
+            items, labor, pct, gross, discount, total, discount_type = read_items()
             client_id = request.form.get("client_id", "").strip()
             if client_id:
                 client = db.execute("SELECT * FROM clients WHERE id=?", (client_id,)).fetchone()
@@ -346,15 +357,15 @@ def edit_order(order_id):
                 vehicle_id = db.execute("INSERT INTO vehicles(client_id,plate,model) VALUES (?,?,?)", (client_id, plate, model)).lastrowid
             values = (client_id, vehicle_id, request.form.get("notes", ""), rounded(labor), rounded(total),
                       request.form.get("cpf", ""), request.form.get("client_address", ""),
-                      request.form.get("payment_method", ""), float(pct), rounded(discount), rounded(gross))
+                      request.form.get("payment_method", ""), float(pct), rounded(discount), rounded(gross), discount_type)
             if order_id:
                 db.execute("""UPDATE orders SET client_id=?,vehicle_id=?,notes=?,labor=?,total=?,client_cpf=?,
-                  client_address=?,payment_method=?,discount_percent=?,discount_value=?,total_bruto=? WHERE id=?""", values + (order_id,))
+                  client_address=?,payment_method=?,discount_percent=?,discount_value=?,total_bruto=?,discount_type=? WHERE id=?""", values + (order_id,))
                 db.execute("DELETE FROM order_items WHERE order_id=?", (order_id,))
             else:
                 order_id = db.execute("""INSERT INTO orders(client_id,vehicle_id,notes,labor,total,client_cpf,
-                  client_address,payment_method,discount_percent,discount_value,total_bruto,status,created_at)
-                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""", values + ("Aberta", now().strftime("%Y-%m-%d %H:%M"))).lastrowid
+                  client_address,payment_method,discount_percent,discount_value,total_bruto,discount_type,status,created_at)
+                  VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", values + ("Aberta", now().strftime("%Y-%m-%d %H:%M"))).lastrowid
             db.executemany("INSERT INTO order_items(order_id,description,qty,unit_price) VALUES (?,?,?,?)",
                            [(order_id, d, float(q), float(p)) for d, q, p in items])
             db.commit()

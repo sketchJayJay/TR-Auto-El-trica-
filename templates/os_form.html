@@ -27,7 +27,10 @@
   </section>
   <section class="panel form-panel"><div class="section-title"><span class="section-number">04</span><h2>Valores e pagamento</h2></div><div class="form-grid">
     <div><label class="label" for="labor">Mão de obra (R$)</label><input id="labor" class="field" type="number" name="labor" value="{{ value('labor',o.labor if o else '0') }}" step="0.01" min="0" required></div>
-    <div><label class="label" for="discount">Desconto (%)</label><input id="discount" class="field" type="number" name="discount_percent" value="{{ value('discount_percent',o.discount_percent if o else '0') }}" min="0" max="100" step="0.01" required></div>
+    {% set discount_type = posted.get('discount_type', o.discount_type if o else 'percent') %}
+    <div><label class="label" for="discount-type">Tipo de desconto</label><select id="discount-type" class="field" name="discount_type"><option value="percent" {{ 'selected' if discount_type=='percent' else '' }}>Porcentagem (%)</option><option value="fixed" {{ 'selected' if discount_type=='fixed' else '' }}>Valor em reais (R$)</option></select></div>
+    <div id="discount-percent-field" {{ 'hidden' if discount_type=='fixed' else '' }}><label class="label" for="discount">Desconto (%)</label><input id="discount" class="field" type="number" name="discount_percent" value="{{ value('discount_percent',o.discount_percent if o else '0') }}" inputmode="decimal" min="0" max="100" step="0.01" required></div>
+    <div id="discount-fixed-field" {{ 'hidden' if discount_type!='fixed' else '' }}><label class="label" for="discount-fixed">Desconto (R$)</label><input id="discount-fixed" class="field" type="number" name="discount_fixed" value="{{ value('discount_fixed',o.discount_value if o and o.discount_type=='fixed' else '0') }}" inputmode="decimal" min="0" step="0.01" required><p class="form-help">Ex.: total de R$ 200 − R$ 20 de desconto = R$ 180.</p></div>
     <div class="span-2"><label class="label" for="payment">Forma de pagamento</label><select id="payment" class="field" name="payment_method"><option value="">Selecione</option>{% for pm in ['Dinheiro','Pix','Cartão Débito','Cartão Crédito','Boleto','Transferência'] %}<option value="{{ pm }}" {{ 'selected' if posted.get('payment_method',o.payment_method if o else '')==pm else '' }}>{{ pm }}</option>{% endfor %}</select></div>
   </div></section>
 </div>
@@ -35,4 +38,4 @@
 </form>
 <script type="application/json" id="order-data">{{ {'clients':clients,'vehicles':vehicles,'stock':stock,'items':items}|tojson }}</script>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static',filename='order.js') }}" defer></script>{% endblock %}
+{% block scripts %}<script src="{{ static_asset('order.js') }}" defer></script>{% endblock %}
